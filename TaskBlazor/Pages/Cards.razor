@@ -1,0 +1,81 @@
+﻿@page "/cards"
+@using TaskBlazor.Shared.Component
+
+<PageTitle>Card View</PageTitle>
+
+<h3>Task Cards View</h3>
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center mt-3">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-3 g-2">
+        @foreach (var task in tasks)
+        {
+            <div class="col">
+                <TaskCardComponent Task="task" OnEdit="EditTask" OnDelete="DeleteTask" />
+            </div>
+        }
+    </div>
+}
+<ConfirmDialogComponent @ref="confirmDialog" OnClose="HandleConfirmClose" />
+
+@using TaskBlazor.Model
+@using TaskBlazor.Services
+
+@code {
+    List<TaskViewModel> tasks { get; set; } = new();
+    private TaskViewModel? taskToDelete = new();
+    private ConfirmDialogComponent? confirmDialog;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        isLoading = true;
+        tasks = new();
+        try
+        {
+            await Task.Delay(1000); // simulate API call
+            tasks = await TaskService.GetTasks(null, null);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task EditTask(TaskViewModel task)
+    {
+        //var resp = await TaskService.UpdateTask(task);
+    }
+
+    private async Task DeleteTask(TaskViewModel task)
+    {
+        taskToDelete = task;
+        confirmDialog?.Show("Delete Task", $"Are you sure you want to delete '{task.Title}'?");
+        await TaskService.DeleteTask(task.Id);
+    }
+
+    private async Task HandleConfirmClose(bool confirmed)
+    {
+        if (confirmed && taskToDelete != null)
+        {
+            await TaskService.DeleteTask(taskToDelete.Id);
+        }
+
+        taskToDelete = null;
+    }
+}

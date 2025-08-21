@@ -1,0 +1,42 @@
+﻿<div class="card shadow-sm mb-3" style="width: 18rem;">
+    <div class="card-body">
+        <h5 class="card-title">@Task.Title</h5>
+        <h6 class="card-subtitle mb-2 text-muted"><span class="badge @GetStatusClass(Task.StatusName)">@Task.StatusName</span></h6>
+        <h6 class="card-subtitle mb-2 text-muted"><span class="@GetPriorityClass(Task.PriorityName)">@Task.PriorityName</span> </h6>
+        <p class="card-text">@Task.Description</p>
+        <p class="card-text ">Due date: @Task.DueDate</p>
+        <div class="d-flex gap-2">
+            @* <button class="btn btn-sm btn-primary" @onclick="() => OnEdit.InvokeAsync(Task)">
+                Edit
+            </button> *@
+            <button class="btn btn-sm btn-danger" @onclick="() => OnDelete.InvokeAsync(Task)">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+@using TaskBlazor.Model
+
+@code {
+    [Parameter] public TaskViewModel Task { get; set; } = default!;
+    [Parameter] public EventCallback<TaskViewModel> OnEdit { get; set; }
+    [Parameter] public EventCallback<TaskViewModel> OnDelete { get; set; }
+
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Todo" => "bg-secondary",
+        "InProgress" => "bg-warning text-dark",
+        "Done" => "bg-success",
+        _ => "bg-primary"
+    };
+
+    private string GetPriorityClass(string priority) => priority switch
+    {
+        "Low" => "text-body",
+        "Medium" => "text-info",
+        "High" => "text-warning",
+        _ => "bg-primary"
+    };
+}

@@ -1,0 +1,231 @@
+﻿<div>
+    <h3>Tasks</h3>
+    <button class="btn btn-sm btn-primary" disabled="@isDisabled" @onclick="AddNewTask">Create New Task</button>
+</div>
+<hr />
+@if(!isEditing){
+    <div class="row">
+        <div class="col-2">
+            Status
+            <select class="form-select" aria-label="Status" @onchange="HandleStatusChange">
+                <option value=""></option>
+                <option value="1">Todo</option>
+                <option value="2">In Progress</option>
+                <option value="3">Done</option>
+            </select>
+        </div>
+        <div class="col-2">
+            Priority
+            <select class="form-select" aria-label="Priority" @onchange="HandlePriorityChange">
+                <option value=""></option>
+                <option value="1">Low</option>
+                <option value="2">Medium</option>
+                <option value="3">High</option>
+            </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            @if (isLoading)
+            {
+                <div class="d-flex justify-content-center mt-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }else
+            {
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.Id))">Id</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.Title))">Title</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.Description))">Description</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.Status))">Status</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.Priority))">Priority</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.DueDate))">Due Date</a></th>
+                            <th><a href="#" @onclick="() => SortBy(nameof(TaskViewModel.CreatedDate))">Created Date</a></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var task in PagedData)
+                        {
+                            <tr>
+                                <td>@task.Id</td>
+                                <td>@task.Title</td>
+                                <td>@task.Description</td>
+                                <td>@task.StatusName</td>
+                                <td>@task.PriorityName</td>
+                                <td>@task.DueDate.GetValueOrDefault().ToShortDateString()</td>
+                                <td>@task.CreatedDate.ToShortDateString()</td>
+                                <td>
+                                    <button class="btn btn-secondary" @onclick="() =>EditTask(task)">Edit</button>
+                                    <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(task)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-sm btn-primary" @onclick="PrevPage" disabled="@(_page == 1)">Previous</button>
+                    <span>Page @_page of @pageSize</span>
+                    <button class="btn btn-sm btn-primary" @onclick="NextPage" disabled="@(_page == pageSize)">Next</button>
+                </div>
+            }
+
+        </div>
+    </div>
+    <hr />
+}
+<div class="row">
+    <div class="col">
+        @if (showForm)
+        {
+            <TaskFormComponent editTask="taskToEdit" ReloadTable="HandleReload"></TaskFormComponent>
+        }
+    </div>
+</div>
+
+<ConfirmDialogComponent @ref="confirmDialog" OnClose="HandleConfirmClose" />
+<ToastComponent @ref="toastRef" />
+
+@using TaskBlazor.Model
+@using TaskBlazor.Services
+@code {
+    List<TaskViewModel> tasks { get; set; } = new();
+    public int? status { get; set; } = null;
+    public int? priority { get; set; } = null;
+    public int _page { get; set; } = 1;
+    public int pageSize { get; set; } = 5;
+    private int totalPages => (int)Math.Ceiling((double)tasks.Count / pageSize);
+    private bool _desc = false;
+    private bool isEditing = false;
+    private TaskViewModel? taskToEdit = new();
+    private bool isDisabled = false;
+    private bool isLoading = false;
+
+    private TaskViewModel? taskToDelete = new();
+    private ConfirmDialogComponent? confirmDialog;
+    private ToastComponent toastRef;
+
+    private IEnumerable<TaskViewModel> PagedData => tasks.Skip((_page - 1) * pageSize).Take(pageSize);
+
+    private bool showForm = false;
+
+    private void AddNewTask()
+    {
+        showForm = !showForm;
+        isEditing = true;
+        isDisabled = !isDisabled;
+    }
+
+    private void EditTask(TaskViewModel task)
+    {
+        taskToEdit = task;
+        showForm = !showForm;
+        isEditing = true;
+        isDisabled = true;
+    }
+
+    private void ConfirmDelete(TaskViewModel task)
+    {
+        taskToDelete = task;
+        confirmDialog?.Show("Delete Task", $"Are you sure you want to delete '{task.Title}'?");
+    }
+
+    private async Task HandleConfirmClose(bool confirmed)
+    {
+        if (confirmed && taskToDelete != null)
+        {
+            await TaskService.DeleteTask(taskToDelete.Id);
+            toastRef.Show("Task deleted successfully!", "success");
+            await LoadTasks();
+        }
+        
+        taskToDelete = null;
+    }
+
+    protected async void HandleReload(bool reload)
+    {
+
+        taskToEdit = new();
+        taskToDelete = new();
+
+        if (reload)
+        {
+            showForm = !showForm;
+            isEditing = false;
+            isDisabled = false;
+            await LoadTasks();
+            StateHasChanged();
+        }
+
+
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        isLoading = true;
+        tasks = new();
+        try
+        {
+            await Task.Delay(1000); // simulate API call
+            tasks = await TaskService.GetTasks(status, priority);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+        
+    }
+
+    private async Task HandleStatusChange(ChangeEventArgs e)
+    {
+        int.TryParse(e?.Value?.ToString(), out int stat);
+        status = stat == 0 ? null : stat;
+        await LoadTasks();
+        StateHasChanged();
+    }
+
+    private async Task HandlePriorityChange(ChangeEventArgs e)
+    {
+        int.TryParse(e?.Value?.ToString(), out int prio);
+        priority = prio == 0 ? null : prio;
+        await LoadTasks();
+        StateHasChanged();
+    }
+
+    private void SortBy(string propertyName)
+    {
+        if (_desc)
+            tasks = tasks.OrderByDescending(x => x.GetType().GetProperty(propertyName).GetValue(x)).ToList();
+        else
+            tasks = tasks.OrderBy(x => x.GetType().GetProperty(propertyName).GetValue(x)).ToList();
+
+        _desc = !_desc;
+    }
+
+    private void NextPage()
+    {
+        if (_page < totalPages)
+            _page++;
+
+        StateHasChanged();
+    }
+
+    private void PrevPage()
+    {
+        if (_page > 1)
+            _page--;
+
+        StateHasChanged();
+    }
+
+
+}

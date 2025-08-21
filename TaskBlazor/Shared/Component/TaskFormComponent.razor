@@ -1,0 +1,118 @@
+﻿
+<h3>@(editTask.Id == 0 ? "Create New" : "Edit") Task</h3>
+
+<EditForm Model="@editTask" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="row">
+        <div class="col">
+            <div class="mb-3">
+                <label for="title" class="form-label">Title</label>
+                <InputText id="title" class="form-control" @bind-Value="editTask.Title" />
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <InputTextArea id="description" class="form-control" @bind-Value="editTask.Description" />
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="mb-3">
+                <label for="status" class="form-label">Status</label>
+                <InputSelect id="status" class="form-control" @bind-Value="editTask.Status">
+                    <option value="1">Todo</option>
+                    <option value="2">InProgress</option>
+                    <option value="3">Done</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="col">
+            <div class="mb-3">
+                <label for="priority" class="form-label">Priority</label>
+                <InputSelect id="priority" class="form-control" @bind-Value="editTask.Priority">
+                    <option value="1">Low</option>
+                    <option value="2">Medium</option>
+                    <option value="3">High</option>
+                </InputSelect>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="mb-3">
+                <label for="dueDate" class="form-label">Due Date</label>
+                <InputDate id="dueDate" class="form-control" @bind-Value="editTask.DueDate" />
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Task</button>
+    <button type="button" @onclick="CancelForm" class="btn btn-secondary">Cancel</button>
+</EditForm>
+
+<ToastComponent @ref="toastRef" />
+
+@using TaskBlazor.Model
+@using TaskBlazor.Services
+
+@code {
+    private ToastComponent toastRef;
+
+    [Parameter]
+    public TaskViewModel editTask { get; set; }
+
+
+    [Parameter]
+    public EventCallback<bool> ReloadTable { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        if(editTask.Id == 0)
+        {
+            editTask.CreatedDate = DateTime.Now;
+            var resp = await TaskService.CreateTask(editTask);
+            if (resp)
+            {
+                toastRef.Show($"Task '{editTask.Title}' created successfully!", "success");
+                // Reset form
+                editTask = new TaskViewModel { CreatedDate = DateTime.Now };
+                await Task.Delay(1000);
+                await ReloadTable.InvokeAsync(true);
+            }
+            else
+            {
+                toastRef.Show($"Task was not created.", "warning");
+            }
+        }
+        else
+        {
+            var resp = await TaskService.UpdateTask(editTask);
+            if (resp)
+            {
+                toastRef.Show($"Task '{editTask.Title}' updated successfully!", "success");
+                // Reset form
+                editTask = new TaskViewModel { CreatedDate = DateTime.Now };
+                await Task.Delay(1000);
+                await ReloadTable.InvokeAsync(true);
+            }
+            else
+            {
+                toastRef.Show($"Task was not updated.", "warning");
+            }
+        }
+
+    }
+
+    private async Task CancelForm()
+    {
+        // Reset form
+        editTask = new TaskViewModel { CreatedDate = DateTime.Now };
+        await ReloadTable.InvokeAsync(true);
+    }
+
+}
